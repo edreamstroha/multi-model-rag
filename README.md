@@ -84,7 +84,7 @@ Before running this project, ensure you have the following installed and set up:
     langchain
     langchain-community
     langchain-core
-    ollama
+    langchain-ollama
     chromadb
     PyMuPDF
     fpdf
@@ -98,7 +98,7 @@ To run the Multimodal Local RAG system:
 1.  **Ensure all [Prerequisites](#prerequisites) are met.** Specifically, Ollama and its models must be running.
 2.  **Execute the Python script:**
     ```bash
-    python multimodal_rag.py
+    python main.py
     ```
 
 The script will perform the following actions:
