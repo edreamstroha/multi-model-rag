@@ -71,7 +71,7 @@ You need to run both the backend and frontend simultaneously.
 In your backend project root:
 
 ```bash
-uvicorn app:app --reload
+uvicorn main:app --reload
 ```
 
 The API will be available at `http://127.0.0.1:8000`. You can test endpoints via `http://127.0.0.1:8000/docs`.
