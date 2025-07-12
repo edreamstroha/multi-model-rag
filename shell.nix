@@ -11,5 +11,8 @@ stdenv.mkDerivation {
     python3Packages.chromadb
     python3Packages.pytesseract
     python3Packages.pillow
+    python3Packages.fastapi
+    python3Packages.uvicorn
+    python3Packages.python-multipart
   ];
 }
