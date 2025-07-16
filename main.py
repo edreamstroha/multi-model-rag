@@ -22,18 +22,14 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama.chat_models import ChatOllama
 from langchain_ollama.embeddings import OllamaEmbeddings
 
-# Ensure the 'data' directory exists
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
-
-# --- Your original RAG processing functions (slightly modified for file handling) ---
 
 def process_multimodal_pdf(pdf_bytes: bytes, pdf_filename: str) -> List[Document]:
     """
     Processes a PDF where each page is an image. It uses OCR for text
     and a VLM for visual descriptions.
     """
-    # Create a temporary file to allow fitz to open it directly
     temp_pdf_path = os.path.join(DATA_DIR, f"temp_{pdf_filename}")
     with open(temp_pdf_path, "wb") as f:
         f.write(pdf_bytes)
@@ -78,9 +74,7 @@ def process_multimodal_pdf(pdf_bytes: bytes, pdf_filename: str) -> List[Document
                     )
         except Exception as e:
             print(f"  - Error running OCR on page {current_page} of {pdf_filename}: {e}")
-            # Continue processing even if OCR fails for one page
 
-        # b) Vision Path: Get a visual description of the page image
         print(f"  - Running Vision model on page {current_page} of {pdf_filename}...")
         try:
             image_bytes = pix.tobytes("png")
@@ -110,10 +104,9 @@ def process_multimodal_pdf(pdf_bytes: bytes, pdf_filename: str) -> List[Document
             )
         except Exception as e:
             print(f"  - Error running Vision model on page {current_page} of {pdf_filename}: {e}")
-            # Continue processing even if vision model fails for one page
 
     doc.close()
-    os.remove(temp_pdf_path) # Clean up the temporary file
+    os.remove(temp_pdf_path)
     return all_docs
 
 
@@ -160,36 +153,29 @@ Answer:
     )
     return rag_chain
 
-
-# --- FastAPI Application Setup ---
-
 app = FastAPI(
     title="Multimodal PDF RAG API",
     description="API for ingesting multimodal PDFs (OCR + Vision) and querying with RAG.",
     version="1.0.0",
 )
 
-# Global variables for the RAG system
-# Initialize vector_store as None; it will be initialized on startup or first upload
 vector_store: Union[Chroma, None] = None
 rag_chain = None
 embedding_model = None
-CHROMA_PERSIST_DIR = "./chroma_db_api" # Use a different directory for the API's vector store
+CHROMA_PERSIST_DIR = "./chroma_db"
 
 origins = [
     "http://localhost",
-    "http://localhost:3000", # Your React app's default address
-    "http://127.0.0.1:3000", # Sometimes it resolves to this
-    # Add any other origins where your frontend might be hosted, e.g.,
-    # "http://your-production-domain.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.on_event("startup")
@@ -204,7 +190,6 @@ async def startup_event():
 
     print(f"Attempting to load vector store from {CHROMA_PERSIST_DIR}...")
     try:
-        # Check if the persist directory exists and has data
         if os.path.exists(CHROMA_PERSIST_DIR) and any(os.scandir(CHROMA_PERSIST_DIR)):
             vector_store = Chroma(
                 persist_directory=CHROMA_PERSIST_DIR, embedding_function=embedding_model
@@ -217,13 +202,10 @@ async def startup_event():
                 print("Vector store loaded but is empty. Will initialize RAG chain upon first upload.")
         else:
             print("No existing vector store found or it's empty. It will be created on first upload.")
-            # Chroma will create the directory if it doesn't exist when we add documents
-            # We don't initialize an empty Chroma DB here directly, it's done when `from_documents` or `add_documents` is called
-            # and the first set of documents is added.
 
     except Exception as e:
         print(f"Error loading existing vector store: {e}")
-        vector_store = None # Ensure it's None if loading fails
+        vector_store = None
 
 
 class QueryRequest(BaseModel):
@@ -280,21 +262,18 @@ async def upload_pdfs(files: List[UploadFile] = File(...)):
     print(f"Adding {len(all_new_docs)} new documents to the vector store...")
     try:
         if vector_store is None:
-            # First time adding documents, create the Chroma instance
             vector_store = Chroma.from_documents(
                 documents=all_new_docs,
                 embedding=embedding_model,
-                collection_name="rag", # Use a consistent collection name
+                collection_name="rag",
                 persist_directory=CHROMA_PERSIST_DIR,
             )
             print(f"Initialized new vector store with {vector_store._collection.count()} entries.")
         else:
-            # If vector_store already exists, add documents to it
             vector_store.add_documents(documents=all_new_docs)
-            vector_store.persist() # Ensure changes are saved
+            vector_store.persist()
             print(f"Added documents to existing vector store. Total entries: {vector_store._collection.count()}")
 
-        # Always re-create the RAG chain if documents are added or the store is new
         rag_chain = create_rag_chain(vector_store=vector_store)
         print("RAG chain updated with new documents.")
 
@@ -329,8 +308,6 @@ async def query_rag_model(request: QueryRequest):
         )
 
     if rag_chain is None:
-         # This case should ideally not happen if startup and upload work correctly,
-         # but as a safeguard, recreate the chain if it's somehow missing.
         rag_chain = create_rag_chain(vector_store=vector_store)
         print("RAG chain re-initialized during query request.")
 
